@@ -1,6 +1,6 @@
 const assert = require('assert')
 import { transformValue } from './value-transformations'
-import { parseRelative } from '../../basic-search-helper'
+import { parseRelative } from '../../query-basic/time-range'
 
 describe('NEAR', () => {
   it('converts from NEAR value format', () => {

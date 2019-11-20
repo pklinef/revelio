@@ -1,14 +1,36 @@
 import Tab from '@material-ui/core/Tab'
 import Tabs from '@material-ui/core/Tabs'
 import TextField from '@material-ui/core/TextField'
-import { Map } from 'immutable'
 import React from 'react'
 import Units from './units'
 import { getDistanceInMeters } from './distance-utils'
 
-export const validate = (location = Map()) => {
+import { Map, getIn, setIn } from 'immutable'
+
+export const label = 'Point-Radius'
+
+const getCommon = value => {
+  const lat = getIn(value, ['geojson', 'geometry', 'coordinates', 1], '')
+  const lon = getIn(value, ['geojson', 'geometry', 'coordinates', 0], '')
+
+  const bufferWidth = getIn(
+    value,
+    ['geojson', 'properties', 'buffer', 'width'],
+    0
+  )
+
+  const unit = getIn(
+    value,
+    ['geojson', 'properties', 'buffer', 'unit'],
+    'meters'
+  )
+
+  return { lat, lon, bufferWidth, unit }
+}
+
+export const validate = location => {
   const errors = {}
-  const { lat, lon, bufferWidth } = location.toJSON()
+  const { lat, lon, bufferWidth } = getCommon(location)
 
   if (lat < -90 || lat > 90) {
     errors.lat = `Latitude must be between -90 and 90`
@@ -24,8 +46,11 @@ export const validate = (location = Map()) => {
   return errors
 }
 
-export const generateFilter = (location = Map()) => {
-  const { unit, bufferWidth, lat, lon } = location.toJSON()
+export const generateFilter = () => {
+  const lat = 0
+  const lon = 0
+  const unit = 'meters'
+  const bufferWidth = 0
   return {
     type: 'DWITHIN',
     property: 'anyGeo',
@@ -53,12 +78,9 @@ export const generateFilter = (location = Map()) => {
 
 const LatLon = props => {
   const { value, onChange, errors } = props
-  const {
-    lat = '',
-    lon = '',
-    bufferWidth = 0,
-    unit = 'meters',
-  } = value.toJSON()
+
+  const { lat, lon, bufferWidth, unit } = getCommon(value)
+
   return (
     <div style={{ paddingTop: 10 }}>
       <TextField
@@ -69,7 +91,13 @@ const LatLon = props => {
         helperText={errors.lat}
         value={lat}
         onChange={e => {
-          onChange(value.set('lat', e.target.value))
+          onChange(
+            setIn(
+              value,
+              ['geojson', 'geometry', 'coordinates', 1],
+              e.target.value
+            )
+          )
         }}
       />
       <TextField
@@ -80,7 +108,13 @@ const LatLon = props => {
         helperText={errors.lon}
         value={lon}
         onChange={e => {
-          onChange(value.set('lon', e.target.value))
+          onChange(
+            setIn(
+              value,
+              ['geojson', 'geometry', 'coordinates', 0],
+              e.target.value
+            )
+          )
         }}
       />
       <div style={{ display: 'flex', paddingTop: 10 }}>
@@ -93,7 +127,13 @@ const LatLon = props => {
             helperText={errors.bufferWidth}
             value={bufferWidth}
             onChange={e => {
-              onChange(value.set('bufferWidth', e.target.value))
+              onChange(
+                setIn(
+                  value,
+                  ['geojson', 'properties', 'buffer', 'width'],
+                  e.target.value
+                )
+              )
             }}
           />
         </div>
@@ -101,7 +141,13 @@ const LatLon = props => {
         <Units
           value={unit}
           onChange={e => {
-            onChange(value.set('unit', e.target.value))
+            onChange(
+              setIn(
+                value,
+                ['geojson', 'properties', 'buffer', 'unit'],
+                e.target.value
+              )
+            )
           }}
         />
       </div>
@@ -115,6 +161,7 @@ const tabMap = {
   2: null,
   3: null,
 }
+
 const PointRadius = props => {
   const { value = Map(), onChange, errors = {} } = props
   const [tab, setTab] = React.useState(0)
@@ -144,3 +191,4 @@ const PointRadius = props => {
 }
 
 export default PointRadius
+export const component = PointRadius

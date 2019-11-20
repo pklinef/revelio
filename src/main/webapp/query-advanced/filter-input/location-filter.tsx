@@ -4,7 +4,7 @@ import { QueryFilterProps } from '../filter/filter'
 import { Map } from 'immutable'
 import { Box } from '@material-ui/core'
 import { filterComponentStyle } from '../filter/filter-utils'
-const getLocationFilter = require('../../basic-search-helper').getLocationFilter
+const getLocationFilter = require('../../location').generateFilter
 const validateLocation = require('../../location').validate
 const Location = require('../../location').default
 

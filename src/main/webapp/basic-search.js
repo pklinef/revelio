@@ -1,90 +1,22 @@
-import React, { useState } from 'react'
+import React, { Fragment, useState } from 'react'
 
 import Button from '@material-ui/core/Button'
 import IconButton from '@material-ui/core/IconButton'
-import Checkbox from '@material-ui/core/Checkbox'
 import Divider from '@material-ui/core/Divider'
 import CloseIcon from '@material-ui/icons/Close'
 import { red } from '@material-ui/core/colors'
-import FormControl from '@material-ui/core/FormControl'
-import FormHelperText from '@material-ui/core/FormHelperText'
-import Input from '@material-ui/core/Input'
-import InputLabel from '@material-ui/core/InputLabel'
-import ListItemText from '@material-ui/core/ListItemText'
 import Menu from '@material-ui/core/Menu'
 import MenuItem from '@material-ui/core/MenuItem'
 import Paper from '@material-ui/core/Paper'
-import Select from '@material-ui/core/Select'
-import TextField from '@material-ui/core/TextField'
-import { Map } from 'immutable'
 import Typography from '@material-ui/core/Typography'
 import KeyboardArrowDownIcon from '@material-ui/icons/KeyboardArrowDown'
 import KeyboardArrowUpIcon from '@material-ui/icons/KeyboardArrowUp'
 import Collapse from '@material-ui/core/Collapse'
+
 import SortOrder from './search-settings'
 import { SourcesSelect } from './sources'
 
-import {
-  APPLY_TO_KEY,
-  DATATYPES_KEY,
-  LOCATION_KEY,
-  TEXT_KEY,
-  TIME_RANGE_KEY,
-  toFilterTree,
-  fromFilterTree,
-} from './basic-search-helper'
-import Location, { validate as validateLocation } from './location'
-import TimeRange, {
-  createTimeRange,
-  validate as validateTimeRange,
-} from './time-range'
-
-const timeAttributes = [
-  'created',
-  'datetime.end',
-  'datetime.start',
-  'effective',
-  'expiration',
-  'metacard.created',
-  'metacard.modified',
-  'metacard.version.versioned-on',
-  'modified',
-]
-
-const datatypes = [
-  'Interactive Resource',
-  'Moving Image',
-  'Still Image',
-  'Dataset',
-  'Collection',
-  'Event',
-  'Service',
-  'Software',
-  'Sound',
-  'Text',
-  'Image',
-  'Physical Object',
-]
-
-const TextSearch = ({ text, handleChange }) => {
-  return (
-    <TextField
-      fullWidth
-      label="Text"
-      variant="outlined"
-      value={text}
-      onChange={handleChange}
-    />
-  )
-}
-
-const filterMap = {
-  location: 'Location',
-  timeRange: 'Time Range',
-  datatypes: 'Match Types',
-  sources: 'Sources',
-  sortOrder: 'Sort Order',
-}
+import { get, setIn, removeIn, merge, has, List } from 'immutable'
 
 const defaultSorts = [
   {
@@ -95,45 +27,6 @@ const defaultSorts = [
 
 const defaultSources = ['ddf.distribution']
 
-const AddButton = ({ addFilter }) => {
-  const [anchorEl, setAnchorEl] = React.useState(null)
-  function handleClick(event) {
-    setAnchorEl(event.currentTarget)
-  }
-
-  function handleClose() {
-    setAnchorEl(null)
-  }
-
-  return (
-    <React.Fragment>
-      <Button onClick={handleClick} style={{ marginLeft: '20px' }}>
-        Add Options
-      </Button>
-
-      <Menu
-        anchorEl={anchorEl}
-        keepMounted
-        open={Boolean(anchorEl)}
-        onClose={handleClose}
-      >
-        {Object.keys(filterMap).map(filter => (
-          <MenuItem
-            key={filter}
-            value={filter}
-            onClick={() => {
-              addFilter(filter)
-              handleClose()
-            }}
-          >
-            {filterMap[filter]}
-          </MenuItem>
-        ))}
-      </Menu>
-    </React.Fragment>
-  )
-}
-
 const SearchButton = props => (
   <Button
     style={props.style}
@@ -141,6 +34,7 @@ const SearchButton = props => (
     variant="contained"
     color="primary"
     onClick={props.onSearch}
+    disabled={props.disabled}
   >
     Search
   </Button>
@@ -150,161 +44,62 @@ const populateDefaultQuery = (
   filterTree,
   srcs = defaultSources,
   sorts = defaultSorts
-) => ({
-  srcs,
-  start: 1,
-  count: 250,
-  filterTree,
-  sorts,
-  spellcheck: false,
-  phonetics: false,
-})
+) => {
+  const filters = List(get(filterTree, 'filters', []))
 
-const MatchTypes = ({ state = [], setState, errors = {} }) => {
-  errors = errors.matchTypesErrors || {}
-  return (
-    <FormControl fullWidth>
-      <InputLabel>Match Types</InputLabel>
-      <Select
-        error={errors.datatypes !== undefined}
-        multiple
-        value={state}
-        onChange={e => setState(e.target.value)}
-        renderValue={selected => selected.join(', ')}
-      >
-        {datatypes.map(datatype => (
-          <MenuItem key={datatype} value={datatype}>
-            <Checkbox checked={state.indexOf(datatype) > -1} />
-            <ListItemText primary={datatype} />
-          </MenuItem>
-        ))}
-      </Select>
-      <FormHelperText error={errors.datatypes !== undefined}>
-        {errors.datatypes}
-      </FormHelperText>
-    </FormControl>
-  )
-}
-
-const BasicSources = ({ state = ['ddf.distribution'], setState }) => {
-  return <SourcesSelect value={state} onChange={setState} />
-}
-
-const BasicSortOrder = props => {
-  const { state, setState } = props
-
-  return <SortOrder value={state} onChange={setState} />
-}
-
-const BasicTimeRange = ({ state = Map(), setState, errors }) => {
-  return (
-    <div style={{ flex: '1', overflow: 'hidden' }}>
-      <TimeRange
-        errors={errors.timeRangeErrors}
-        fullWidth
-        timeRange={state.get('value')}
-        setTimeRange={updatedTimeRange => {
-          const next = state.set('value', updatedTimeRange)
-          setState(next)
-        }}
-      />
-      <FormControl fullWidth>
-        <AttributeSelector
-          attributes={state.get(APPLY_TO_KEY)}
-          errors={errors.attributeSelectorErrors}
-          setAttributes={attributes => {
-            const next = state.set(APPLY_TO_KEY, attributes)
-            setState(next)
-          }}
-        />
-      </FormControl>
-    </div>
-  )
-}
-
-const AttributeSelector = props => {
-  const { attributes = [], setAttributes, errors = {} } = props
-
-  return (
-    <FormControl fullWidth>
-      <InputLabel>Apply Time Range To</InputLabel>
-      <Select
-        error={errors.applyTo !== undefined}
-        multiple
-        value={attributes}
-        onChange={e => setAttributes(e.target.value)}
-        input={<Input />}
-        renderValue={selected => {
-          return selected.join(', ')
-        }}
-      >
-        {timeAttributes.map(name => (
-          <MenuItem key={name} value={name}>
-            <Checkbox checked={attributes.indexOf(name) > -1} />
-            <ListItemText primary={name} />
-          </MenuItem>
-        ))}
-      </Select>
-      <FormHelperText error={errors.applyTo !== undefined}>
-        {errors.applyTo}
-      </FormHelperText>
-    </FormControl>
-  )
-}
-
-const BasicLocation = ({ state = Map(), setState, errors }) => {
-  return (
-    <Location
-      value={state}
-      onChange={setState}
-      errors={errors.locationErrors}
-    />
-  )
-}
-
-const filters = {
-  [LOCATION_KEY]: BasicLocation,
-  timeRange: BasicTimeRange,
-  datatypes: MatchTypes,
-  sources: BasicSources,
-  sortOrder: BasicSortOrder,
-}
-
-const filterLabels = {
-  [LOCATION_KEY]: 'Location',
-  timeRange: 'Time Range',
-  datatypes: 'Match Types',
-  sources: 'Sources',
-  sortOrder: 'Sort Order',
-}
-
-const defaultFilters = {
-  timeRange: Map({
-    value: createTimeRange({ type: 'BEFORE' }),
-    applyTo: ['created'],
-  }),
-  [LOCATION_KEY]: Map({
-    type: 'line',
-  }),
-}
-
-const getFilterTree = props => {
-  if (props.query && props.query.filterTree) {
-    return fromFilterTree(props.query.filterTree)
+  if (filters.isEmpty()) {
+    filterTree = {
+      type: 'ILIKE',
+      property: 'anyText',
+      value: '%',
+    }
   }
 
-  return Map({ text: '*' })
+  return {
+    srcs,
+    start: 1,
+    count: 250,
+    filterTree,
+    sorts,
+    spellcheck: false,
+    phonetics: false,
+  }
+}
+
+import * as MatchTypes from './query-basic/match-types'
+import * as TimeRange from './query-basic/time-range'
+import * as TextSearch from './query-basic/text'
+import * as Location from './query-basic/location'
+
+const filterTypes = {
+  text: TextSearch,
+  location: Location,
+  timeRange: TimeRange,
+  datatypes: MatchTypes,
+}
+
+const getBasicType = filter => {
+  if (filter !== undefined) {
+    const type = Object.keys(filterTypes).find(type => {
+      const { match } = filterTypes[type]
+      return match(filter)
+    })
+
+    return filterTypes[type]
+  }
 }
 
 const FilterCard = props => {
   const [state, setState] = useState(true)
-  const { children, label, onRemove } = props
+  const { children, label, hasErrors, onRemove } = props
 
   const spacing = 16
   const Arrow = state ? KeyboardArrowUpIcon : KeyboardArrowDownIcon
 
+  const border = `2px solid ${hasErrors ? red[500] : 'rgba(0,0,0,0)'}`
+
   return (
-    <Paper style={{ width: '100%', marginTop: 20 }}>
+    <Paper style={{ marginTop: 20, border }}>
       <div
         style={{
           display: 'flex',
@@ -339,13 +134,115 @@ const FilterCard = props => {
   )
 }
 
+const defaultQuery = {
+  //filterTree: require('./filterTree.json'),
+}
+
+const BasicSearchFilter = props => {
+  const { filter, errors, onRemove, onChange } = props
+
+  const entry = getBasicType(filter)
+
+  if (entry === undefined && has(filter, 'filters')) {
+    const filters = get(filter, 'filters')
+    return (
+      <Fragment>
+        {filters.map((filter, i) => {
+          return (
+            <BasicSearchFilter
+              key={i}
+              filter={filter}
+              errors={get(errors, i)}
+              onRemove={() => {
+                const next = removeIn(props.filter, ['filters', i])
+                onChange(next)
+              }}
+              onChange={value => {
+                const next = setIn(props.filter, ['filters', i], value)
+                onChange(next)
+              }}
+            />
+          )
+        })}
+      </Fragment>
+    )
+  }
+
+  if (entry === undefined) {
+    return null
+  }
+
+  const { Component, label } = entry
+
+  return (
+    <FilterCard
+      label={label}
+      onRemove={onRemove}
+      hasErrors={errors !== undefined}
+    >
+      <Component state={filter} setState={onChange} errors={errors} />
+    </FilterCard>
+  )
+}
+
+const AddButton = ({ options, onAdd }) => {
+  const [anchorEl, setAnchorEl] = React.useState(null)
+  function handleClick(event) {
+    setAnchorEl(event.currentTarget)
+  }
+
+  function handleClose() {
+    setAnchorEl(null)
+  }
+
+  return (
+    <React.Fragment>
+      <Button onClick={handleClick} style={{ marginLeft: '20px' }}>
+        Add Options
+      </Button>
+
+      <Menu
+        anchorEl={anchorEl}
+        keepMounted
+        open={Boolean(anchorEl)}
+        onClose={handleClose}
+      >
+        {options.map(option => {
+          const { value, label } = option
+          return (
+            <MenuItem
+              key={value}
+              value={value}
+              onClick={() => {
+                onAdd(option)
+                handleClose()
+              }}
+            >
+              {label}
+            </MenuItem>
+          )
+        })}
+      </Menu>
+    </React.Fragment>
+  )
+}
+
 export const BasicSearch = props => {
-  const [filterTree, setFilterTree] = React.useState(getFilterTree(props))
+  const [query, setQuery] = useState(props.query || defaultQuery)
 
-  const [submitted, setSubmitted] = React.useState(false)
-  const errors = validate(filterTree)
+  const setFilterTree = filterTree => {
+    setQuery(setIn(query, ['filterTree'], filterTree))
+  }
 
-  const text = filterTree.get('text')
+  const { filterTree } = query
+
+  const [submitted, setSubmitted] = useState(false)
+  const errors = validate(query)
+
+  const options = Object.keys(filterTypes).map(value => {
+    const label = filterTypes[value].label
+    return { value, label }
+  })
 
   return (
     <div
@@ -356,59 +253,72 @@ export const BasicSearch = props => {
         maxHeight: '100%',
       }}
     >
-      <Paper
-        style={{
-          display: 'flex',
-          alignItems: 'center',
-          padding: 16,
-          boxSizing: 'border-box',
-        }}
-      >
-        <TextSearch
-          text={text}
-          handleChange={e =>
-            setFilterTree(filterTree.set(TEXT_KEY, e.target.value))
+      <AddButton
+        options={options}
+        onAdd={option => {
+          setSubmitted(false)
+          const { generateFilter } = filterTypes[option.value]
+          const filter = generateFilter()
+
+          if (['sortOrder', 'sources'].includes(option.value)) {
+            const next = merge(query, filter)
+            return setQuery(next)
           }
-        />
-        <AddButton
-          addFilter={filter => {
+
+          if (filterTree === undefined) {
+            setFilterTree(filter)
+          } else if (has(filterTree, 'filters')) {
             setFilterTree(
-              filterTree.merge({
-                [filter]: defaultFilters[filter],
-              })
+              setIn(filterTree, ['filters', filterTree.filters.length], filter)
             )
+          } else {
+            setFilterTree({
+              type: 'AND',
+              filters: [filterTree, filter],
+            })
+          }
+        }}
+      />
+      <BasicSearchFilter
+        filter={filterTree}
+        errors={submitted ? get(errors, 'filterTree') : undefined}
+        onChange={filterTree => {
+          setFilterTree(filterTree)
+        }}
+        onRemove={() => {
+          setFilterTree(undefined)
+        }}
+      />
+      {has(query, 'srcs') ? (
+        <FilterCard
+          label="Sources"
+          onRemove={() => {
+            setQuery(removeIn(query, ['srcs']))
           }}
-        />
-      </Paper>
-
-      {filterTree
-        .remove('text')
-        .map((state, filter) => {
-          const Component = filters[filter]
-          const label = filterLabels[filter]
-
-          return (
-            <FilterCard
-              key={filter}
-              label={label}
-              onRemove={() => {
-                setFilterTree(filterTree.remove(filter))
-              }}
-            >
-              <Component
-                state={state}
-                setState={state => {
-                  setFilterTree(filterTree.set(filter, state))
-                }}
-                errors={submitted ? errors : {}}
-              />
-            </FilterCard>
-          )
-        })
-        .valueSeq()}
-
-      <Divider />
-
+        >
+          <SourcesSelect
+            value={get(query, 'srcs')}
+            onChange={srcs => {
+              setQuery(merge(query, { srcs }))
+            }}
+          />
+        </FilterCard>
+      ) : null}
+      {has(query, 'sorts') ? (
+        <FilterCard
+          label="Sorts"
+          onRemove={() => {
+            setQuery(removeIn(query, ['sorts']))
+          }}
+        >
+          <SortOrder
+            value={get(query, 'sorts')}
+            onChange={sorts => {
+              setQuery(merge(query, { sorts }))
+            }}
+          />
+        </FilterCard>
+      ) : null}
       <div
         style={{
           marginTop: 20,
@@ -416,17 +326,18 @@ export const BasicSearch = props => {
       >
         <SearchButton
           fullWidth
+          disabled={submitted && errors !== undefined}
           onSearch={() => {
             setSubmitted(true)
 
-            if (isEmpty(errors)) {
-              props.onSearch(
-                populateDefaultQuery(
-                  toFilterTree(filterTree),
-                  filterTree.get('sources'),
-                  filterTree.get('sortOrder')
-                )
+            if (errors === undefined) {
+              const search = populateDefaultQuery(
+                filterTree,
+                query.sources,
+                query.sorts
               )
+              console.log(search)
+              props.onSearch(search)
             }
           }}
         />
@@ -435,60 +346,39 @@ export const BasicSearch = props => {
   )
 }
 
-const isEmpty = checkThis => {
-  return Object.keys(checkThis).length === 0
+const validateFilterTree = filter => {
+  const entry = getBasicType(filter)
+
+  if (entry === undefined && has(filter, 'filters')) {
+    const errors = get(filter, 'filters').map(validateFilterTree)
+
+    if (errors.some(error => error !== undefined)) {
+      return errors
+    }
+
+    return
+  }
+
+  if (entry === undefined) {
+    return
+  }
+
+  const { validate } = entry
+
+  if (typeof validate === 'function') {
+    const errors = validate(filter)
+    if (errors !== undefined && Object.keys(errors).length > 0) {
+      return errors
+    }
+  }
 }
 
-const validateAttributeSelector = (applyTo = []) => {
-  const errors = {}
+const validate = query => {
+  const filterTree = validateFilterTree(get(query, 'filterTree'))
 
-  if (applyTo.length === 0) {
-    errors.applyTo = 'Must choose at least one attribute'
+  if (filterTree !== undefined) {
+    return { filterTree }
   }
-
-  return errors
-}
-
-const validateMatchTypes = () => {
-  return {}
-}
-
-const validate = (filterMap = Map()) => {
-  let errors = {}
-
-  if (filterMap.has(LOCATION_KEY)) {
-    const locationErrors = validateLocation(filterMap.getIn([LOCATION_KEY]))
-    if (!isEmpty(locationErrors)) {
-      errors['locationErrors'] = locationErrors
-    }
-  }
-
-  if (filterMap.has(TIME_RANGE_KEY)) {
-    const timeRangeErrors = validateTimeRange(
-      filterMap.getIn([TIME_RANGE_KEY, 'value'])
-    )
-
-    if (!isEmpty(timeRangeErrors)) {
-      errors['timeRangeErrors'] = timeRangeErrors
-    }
-
-    const attributeSelectorErrors = validateAttributeSelector(
-      filterMap.getIn([TIME_RANGE_KEY, APPLY_TO_KEY])
-    )
-    if (!isEmpty(attributeSelectorErrors)) {
-      errors['attributeSelectorErrors'] = attributeSelectorErrors
-    }
-  }
-
-  if (filterMap.has(DATATYPES_KEY)) {
-    const matchTypesErrors = validateMatchTypes(
-      filterMap.getIn([DATATYPES_KEY])
-    )
-    if (!isEmpty(matchTypesErrors)) {
-      errors['matchTypesErrors'] = matchTypesErrors
-    }
-  }
-  return errors
 }
 
 export default BasicSearch

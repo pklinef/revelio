@@ -1,27 +1,49 @@
 import TextField from '@material-ui/core/TextField'
-import { Map } from 'immutable'
 import React from 'react'
 import Units from './units'
 import { getDistanceInMeters } from './distance-utils'
 
-export const validate = (location = Map()) => {
+import { Map, getIn, setIn } from 'immutable'
+
+export const label = 'Line'
+
+const getCommon = value => {
+  const coordinates = getIn(value, ['geojson', 'geometry', 'coordinates'])
+  const bufferWidth = getIn(
+    value,
+    ['geojson', 'properties', 'buffer', 'width'],
+    0
+  )
+  const unit = getIn(
+    value,
+    ['geojson', 'properties', 'buffer', 'unit'],
+    'meters'
+  )
+
+  return { coordinates, bufferWidth, unit }
+}
+
+export const validate = location => {
   const errors = {}
-  const { coordinates = [], bufferWidth = 0 } = location.toJSON()
+  const { coordinates = [], bufferWidth = 0 } = getCommon(location)
 
   if (typeof coordinates === 'string') {
-    errors.coordinates = `Invalid Line`
+    errors.coordinates = 'Invalid Line'
   }
 
   if (bufferWidth < 0) {
-    errors.bufferWidth = `Buffer width must be greater or equal to 0`
+    errors.bufferWidth = 'Buffer width must be greater or equal to 0'
   }
   return errors
 }
 
 const parseLine = line => line.map(([lon, lat]) => `${lon} ${lat}`).join()
 
-export const generateFilter = (location = Map()) => {
-  const { coordinates, bufferWidth, unit } = location.toJSON()
+export const generateFilter = () => {
+  const coordinates = []
+  const bufferWidth = 0
+  const unit = 'meters'
+
   return {
     type: bufferWidth > 0 ? 'DWITHIN' : 'INTERSECTS',
     property: 'anyGeo',
@@ -51,7 +73,8 @@ export const generateFilter = (location = Map()) => {
 
 const Line = props => {
   const { value = Map(), onChange, errors = {} } = props
-  const { coordinates = '', bufferWidth = 0, unit = 'meters' } = value.toJSON()
+
+  const { coordinates, bufferWidth, unit } = getCommon(value)
 
   return (
     <div style={{ paddingTop: 10 }}>
@@ -70,7 +93,9 @@ const Line = props => {
           try {
             coordinates = JSON.parse(coordinates)
           } catch (e) {}
-          onChange(value.set('coordinates', coordinates))
+          onChange(
+            setIn(value, ['geojson', 'geometry', 'coordinates'], coordinates)
+          )
         }}
       />
       <div style={{ display: 'flex', paddingTop: 10 }}>
@@ -83,7 +108,13 @@ const Line = props => {
             helperText={errors.bufferWidth}
             value={bufferWidth}
             onChange={e => {
-              onChange(value.set('bufferWidth', e.target.value))
+              onChange(
+                setIn(
+                  value,
+                  ['geojson', 'properties', 'buffer', 'width'],
+                  e.target.value
+                )
+              )
             }}
           />
         </div>
@@ -91,7 +122,13 @@ const Line = props => {
         <Units
           value={unit}
           onChange={e => {
-            onChange(value.set('unit', e.target.value))
+            onChange(
+              setIn(
+                value,
+                ['geojson', 'properties', 'buffer', 'unit'],
+                e.target.value
+              )
+            )
           }}
         />
       </div>
@@ -100,3 +137,4 @@ const Line = props => {
 }
 
 export default Line
+export const component = Line

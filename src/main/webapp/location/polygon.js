@@ -1,12 +1,31 @@
 import TextField from '@material-ui/core/TextField'
-import { Map } from 'immutable'
 import React from 'react'
 import Units from './units'
 import { getDistanceInMeters } from './distance-utils'
 
+import { Map, getIn, setIn } from 'immutable'
+
+export const label = 'Polygon'
+
+const getCommon = value => {
+  const coordinates = getIn(value, ['geojson', 'geometry', 'coordinates'])
+  const bufferWidth = getIn(
+    value,
+    ['geojson', 'properties', 'buffer', 'width'],
+    0
+  )
+  const unit = getIn(
+    value,
+    ['geojson', 'properties', 'buffer', 'unit'],
+    'meters'
+  )
+
+  return { coordinates, bufferWidth, unit }
+}
+
 export const validate = (location = Map()) => {
   const errors = {}
-  const { coordinates = [], bufferWidth = 0 } = location.toJSON()
+  const { coordinates = [], bufferWidth = 0 } = getCommon(location)
 
   if (typeof coordinates === 'string') {
     errors.coordinates = `Invalid polygon`
@@ -15,14 +34,18 @@ export const validate = (location = Map()) => {
   if (bufferWidth < 0) {
     errors.bufferWidth = `Buffer width must be greater or equal to 0`
   }
+
   return errors
 }
 
 const parsePolygon = polygon =>
   polygon.map(([lon, lat]) => `${lon} ${lat}`).join()
 
-export const generateFilter = (location = Map()) => {
-  const { coordinates, bufferWidth, unit } = location.toJSON()
+export const generateFilter = () => {
+  const coordinates = []
+  const bufferWidth = 0
+  const unit = 'meters'
+
   return {
     type: bufferWidth > 0 ? 'DWITHIN' : 'INTERSECTS',
     property: 'anyGeo',
@@ -52,7 +75,8 @@ export const generateFilter = (location = Map()) => {
 
 const Polygon = props => {
   const { value = Map(), onChange, errors = {} } = props
-  const { coordinates = '', bufferWidth = 0, unit = 'meters' } = value.toJSON()
+
+  const { coordinates, bufferWidth, unit } = getCommon(value)
 
   return (
     <div style={{ paddingTop: 10 }}>
@@ -71,7 +95,9 @@ const Polygon = props => {
           try {
             coordinates = JSON.parse(coordinates)
           } catch (e) {}
-          onChange(value.set('coordinates', coordinates))
+          onChange(
+            setIn(value, ['geojson', 'geometry', 'coordinates'], coordinates)
+          )
         }}
       />
       <div style={{ display: 'flex', paddingTop: 10 }}>
@@ -84,7 +110,13 @@ const Polygon = props => {
             helperText={errors.bufferWidth}
             value={bufferWidth}
             onChange={e => {
-              onChange(value.set('bufferWidth', e.target.value))
+              onChange(
+                setIn(
+                  value,
+                  ['geojson', 'properties', 'buffer', 'width'],
+                  e.target.value
+                )
+              )
             }}
           />
         </div>
@@ -92,7 +124,13 @@ const Polygon = props => {
         <Units
           value={unit}
           onChange={e => {
-            onChange(value.set('unit', e.target.value))
+            onChange(
+              setIn(
+                value,
+                ['geojson', 'properties', 'buffer', 'unit'],
+                e.target.value
+              )
+            )
           }}
         />
       </div>
@@ -101,3 +139,4 @@ const Polygon = props => {
 }
 
 export default Polygon
+export const component = Polygon

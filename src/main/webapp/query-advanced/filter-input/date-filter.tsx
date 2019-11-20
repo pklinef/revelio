@@ -7,7 +7,7 @@ const {
   TimeRangeRelative,
   validate,
 } = require('../../time-range')
-const { uglyMap, parseRelative } = require('../../basic-search-helper')
+const { uglyMap, parseRelative } = require('../../query-basic/time-range')
 import { Map } from 'immutable'
 
 export const comparatorOptions = ['BEFORE', 'AFTER', 'DURING', '=', 'IS NULL']
