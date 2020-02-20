@@ -29,7 +29,7 @@ const App = () => {
   return (
     <MuiPickersUtilsProvider utils={MomentUtils}>
       <ApolloProvider client={client}>
-        <BrowserRouter basename="/search/catalog">
+        <BrowserRouter basename="/csr">
           <div>
             <Routes />
             {showLogin ? (

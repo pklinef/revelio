@@ -19,11 +19,11 @@ const url = require('url')
 const qs = require('querystring')
 const fetch = require('isomorphic-fetch')
 const ddfLocation = config('DDF_LOCATION')
+const port = config('EXPRESS_PORT')
 const Origin = ddfLocation.href
 
 const fetchRequest = async (url, { headers, ...opts } = {}) => {
-  return fetch(url, {
-    credentials: 'same-origin',
+  return fetch(url.replace(`http://localhost:${port}/`, Origin), {
     cache: 'no-cache',
     ...opts,
     headers: {

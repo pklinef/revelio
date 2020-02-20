@@ -70,7 +70,7 @@
     "winston": "^3.2.1"
   },
   "scripts": {
-    "start": "cross-env NODE_OPTIONS=\"--inspect --max_old_space_size=8192\" ace start --middleware src/main/graphql-server/middleware.js",
+    "start": "cross-env NODE_OPTIONS=\"--inspect --max_old_space_size=8192\" ace start",
     "start:prod": "cross-env NODE_ENV=production node target/server/bundle.middleware.js",
     "fmt": "ace format -w",
     "start:test": "ace start --env=test",
@@ -79,10 +79,10 @@
     "test": "ace bundle --env=test && ace test",
     "storybook": "ace storybook",
     "build": "yarn build:prod && yarn storybook --static",
-    "build:prod": "cross-env NODE_ENV=production NODE_OPTIONS='--max_old_space_size=8192' ace bundle --middleware src/main/graphql-server/server.js",
+    "build:prod": "cross-env NODE_ENV=production NODE_OPTIONS='--max_old_space_size=8192' ace bundle",
     "prestart": "ace disable-idp"
   },
-  "context-path": "/search/catalog/",
+  "context-path": "/",
   "resolutions": {
     "react-hot-loader": "4.12.9"
   }
